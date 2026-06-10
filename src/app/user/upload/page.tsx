@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Image as ImageIcon, Video, FileText, UploadCloud, Link as LinkIcon, Loader2, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function UploadContent() {
   const { token } = useAuth();
@@ -89,6 +90,43 @@ export default function UploadContent() {
     setIsSubmitting(true);
 
     try {
+      let finalLinkUrl = linkUrl;
+
+      if (uploadMethod === "file" && file) {
+        setMessage({ type: "info", text: "Uploading file to storage..." });
+        
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${fileExt}`;
+        
+        let folder = 'images';
+        if (file.type.startsWith('video/')) folder = 'videos';
+        else if (file.type === 'application/pdf') folder = 'pdfs';
+        
+        const filePath = `${folder}/${fileName}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('content-bucket')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+          
+        if (uploadError) {
+          console.error("Supabase upload error:", uploadError);
+          setMessage({ type: "error", text: "Failed to upload file to storage bucket. Please ensure the bucket exists." });
+          setIsSubmitting(false);
+          return;
+        }
+        
+        const { data: publicUrlData } = supabase.storage
+          .from('content-bucket')
+          .getPublicUrl(filePath);
+          
+        finalLinkUrl = publicUrlData.publicUrl;
+      }
+
+      setMessage({ type: "info", text: "Saving content details..." });
+
       const formData = new FormData();
       formData.append("title", title);
       formData.append("description", description);
@@ -96,12 +134,7 @@ export default function UploadContent() {
       
       const typeMap = { image: "IMAGE", video: "VIDEO", pdf: "PDF" };
       formData.append("type", typeMap[activeTab]);
-
-      if (uploadMethod === "file" && file) {
-        formData.append("file", file);
-      } else if (uploadMethod === "url" && linkUrl) {
-        formData.append("linkUrl", linkUrl);
-      }
+      formData.append("linkUrl", finalLinkUrl);
 
       const res = await fetch("/api/content", {
         method: "POST",
@@ -142,8 +175,12 @@ export default function UploadContent() {
       <p className="text-slate-500 text-sm mb-8">Share your knowledge and creativity with the world.</p>
 
       {message.text && (
-        <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-          {message.type === 'success' && <CheckCircle size={20} />}
+        <div className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
+          message.type === 'success' ? 'bg-green-50 text-green-700' : 
+          message.type === 'error' ? 'bg-red-50 text-red-700' :
+          'bg-blue-50 text-blue-700'
+        }`}>
+          {message.type === 'success' ? <CheckCircle size={20} /> : <Loader2 size={20} className={message.type === 'info' ? "animate-spin" : ""} />}
           <span className="text-sm font-medium">{message.text}</span>
         </div>
       )}
@@ -235,7 +272,7 @@ export default function UploadContent() {
             )}
             <p className="text-xs text-slate-400">
               {activeTab === 'image' && "PNG, JPG, GIF up to 10MB"}
-              {activeTab === 'video' && "MP4, WebM up to 500MB"}
+              {activeTab === 'video' && "MP4, WebM up to 100MB"}
               {activeTab === 'pdf' && "PDF up to 50MB"}
             </p>
           </div>
