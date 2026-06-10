@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -39,7 +39,7 @@ interface ContentItem {
   category: { id: string; name: string } | null;
 }
 
-export default function AdminContentReviewPage() {
+function AdminContentReviewContent() {
   const { token, user: currentUser, loading: authLoading } = useAuth();
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -330,5 +330,17 @@ export default function AdminContentReviewPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminContentReviewPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="animate-spin text-indigo-600" size={32} />
+      </div>
+    }>
+      <AdminContentReviewContent />
+    </Suspense>
   );
 }
