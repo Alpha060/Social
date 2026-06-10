@@ -1,0 +1,86 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+enum ContentType {
+  IMAGE
+  VIDEO
+  PDF
+}
+
+model User {
+  id          String     @id @default(uuid())
+  email       String     @unique
+  password    String
+  name        String
+  bio         String?
+  avatar      String?
+  role        Role       @default(CUSTOMER)
+  isSuspended Boolean    @default(false)
+  
+  // Social Links
+  website     String?
+  youtube     String?
+  instagram   String?
+  twitter     String?
+  linkedin    String?
+  github      String?
+
+  contents    Content[]
+  bookmarks   Bookmark[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  icon      String?
+  contents  Content[]
+  createdAt DateTime  @default(now())
+}
+
+model Content {
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  type        ContentType
+  fileUrl     String
+  thumbnail   String?
+  isVerified  Boolean     @default(false)
+  isFeatured  Boolean     @default(false)
+  views       Int         @default(0)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  categoryId  String?
+
+  bookmarks   Bookmark[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  content   Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  contentId String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, contentId])
+}
